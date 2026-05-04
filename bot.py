@@ -9,7 +9,7 @@ from playwright.sync_api import sync_playwright
 os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "0"
 
 # 🔥 ESTA ES LA LÍNEA NUEVA
-os.system("playwright install chromium")
+os.system("playwright install --with-deps chromium")
 
 TOKEN = os.getenv("TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
