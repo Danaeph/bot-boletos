@@ -1,223 +1,101 @@
-# ==========================================
-# BOT PRO MAX - Ticketmaster Alertas Telegram
-# Detecta:
-# ✅ HTML normal
-# ✅ Fila virtual / Queue-it
-# ✅ Cambios rápidos
-# ✅ Reapertura después de agotado
-# ✅ Anti-falsos positivos
-# ✅ Logs detallados
-# ==========================================
-
 import os
 import time
 import random
 import requests
 from datetime import datetime
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
-# ======================
-# CONFIG
-# ======================
+from playwright.sync_api import sync_playwright
 
 TOKEN = os.getenv("TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
 URLS = {
-    "07 Mayo 2026": "https://www.ticketmaster.com.mx/bts-world-tour-arirang-in-mexico-ciudad-de-mexico-07-05-2026/event/1400642AA1B78268",
-    "09 Mayo 2026": "https://www.ticketmaster.com.mx/bts-world-tour-arirang-in-mexico-ciudad-de-mexico-09-05-2026/event/1400642AA32C84D5",
-    "10 Mayo 2026": "https://www.ticketmaster.com.mx/bts-world-tour-arirang-in-mexico-ciudad-de-mexico-10-05-2026/event/1400642AA32D84D7"
+    "07 Mayo 2026": "https://www.ticketmaster.com.mx/bts-world-tour-arirang-in-mexico-ciudad-de-mexico-07-05-2026/event/1400642AA1B78268?referrer=https%3A%2F%2Fwww.ticketmaster.com.mx%2Fbts-boletos%2Fartist%2F2110227",
+    "09 Mayo 2026": "https://www.ticketmaster.com.mx/bts-world-tour-arirang-in-mexico-ciudad-de-mexico-09-05-2026/event/1400642AA32C84D5?referrer=https%3A%2F%2Fwww.ticketmaster.com.mx%2Fbts-boletos%2Fartist%2F2110227",
+    "10 Mayo 2026": "https://www.ticketmaster.com.mx/bts-world-tour-arirang-in-mexico-ciudad-de-mexico-10-05-2026/event/1400642AA32D84D7?referrer=https%3A%2F%2Fwww.ticketmaster.com.mx%2Fbts-boletos%2Fartist%2F2110227"
 }
-
-HEADERS = {
-    "User-Agent": random.choice([
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
-        "Mozilla/5.0 (X11; Linux x86_64)"
-    ]),
-    "Accept-Language": "es-MX,es;q=0.9,en;q=0.8",
-    "Cache-Control": "no-cache",
-    "Pragma": "no-cache"
-}
-
-# ======================
-# PALABRAS CLAVE
-# ======================
-
-OPEN_WORDS = [
-    "buscar boletos",
-    "buy tickets",
-    "find tickets",
-    "ticket availability",
-    "selecciona tus boletos",
-    "join queue",
-    "queue",
-    "fila virtual",
-    "waiting room",
-    "queue-it",
-    "unlock",
-    "tickets available"
-]
-
-CLOSED_WORDS = [
-    "agotado",
-    "sold out",
-    "coming soon",
-    "próximamente",
-    "no tickets available"
-]
-
-# ======================
-# SESSION
-# ======================
-
-SESSION = requests.Session()
-SESSION.headers.update(HEADERS)
-
-# ======================
-# TELEGRAM
-# ======================
 
 def enviar(msg):
-    try:
-        requests.post(
-            f"https://api.telegram.org/bot{TOKEN}/sendMessage",
-            data={
-                "chat_id": CHAT_ID,
-                "text": msg,
-                "disable_notification": False
-            },
-            timeout=10
-        )
-    except Exception as e:
-        print("Telegram error:", e)
-
-# ======================
-# LOG
-# ======================
+    requests.post(
+        f"https://api.telegram.org/bot{TOKEN}/sendMessage",
+        data={"chat_id": CHAT_ID, "text": msg},
+        timeout=10
+    )
 
 def log(msg):
-    ahora = datetime.now().strftime("%H:%M:%S")
-    print(f"[{ahora}] {msg}")
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
 
-# ======================
-# CHECK PRINCIPAL
-# ======================
-
-def revisar_evento(nombre, url):
+def revisar(page, url):
     try:
-        r = SESSION.get(
-            url,
-            timeout=12,
-            allow_redirects=True
-        )
+        page.goto(url, wait_until="networkidle", timeout=30000)
+        html = page.content().lower()
+        current = page.url.lower()
 
-        html = r.text.lower()
-        final_url = r.url.lower()
+        palabras = [
+            "buscar boletos",
+            "buy tickets",
+            "join queue",
+            "queue",
+            "fila virtual",
+            "waiting room",
+            "ticket availability"
+        ]
 
-        # señales positivas
-        abierta = any(word in html for word in OPEN_WORDS)
+        bloqueado = [
+            "agotado",
+            "sold out",
+            "coming soon"
+        ]
 
-        # queue-it redirect
-        queue = "queue-it" in final_url
+        ok = any(x in html for x in palabras)
+        bad = any(x in html for x in bloqueado)
 
-        # señales negativas
-        cerrada = any(word in html for word in CLOSED_WORDS)
+        if "queue-it" in current:
+            ok = True
 
-        # status code útil
-        code_ok = r.status_code == 200
+        return ok and not bad
 
-        disponible = (abierta or queue) and not cerrada and code_ok
+    except:
+        return False
 
-        return {
-            "evento": nombre,
-            "url": url,
-            "ok": disponible,
-            "status": r.status_code,
-            "queue": queue
-        }
+estado = {k: False for k in URLS}
 
-    except Exception as e:
-        return {
-            "evento": nombre,
-            "url": url,
-            "ok": False,
-            "error": str(e)
-        }
+with sync_playwright() as p:
 
-# ======================
-# ESTADO
-# ======================
+    browser = p.chromium.launch(
+        headless=True,
+        args=[
+            "--no-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-gpu"
+        ]
+    )
 
-estado = {
-    nombre: {
-        "activo": False,
-        "ultima_alerta": 0
-    }
-    for nombre in URLS
-}
+    page = browser.new_page()
 
-# ======================
-# ALERTA
-# ======================
+    log("BOT INICIADO")
 
-def lanzar_alerta(nombre, url):
-    for i in range(5):
-        enviar(
-            f"🚨🚨 BTS DISPONIBLE 🚨🚨\n\n"
-            f"{nombre}\n"
-            f"{url}\n\n"
-            f"¡ENTRA YA!"
-        )
-        time.sleep(1)
+    while True:
 
-# ======================
-# LOOP PRINCIPAL
-# ======================
+        for fecha, url in URLS.items():
 
-log("BOT PRO MAX iniciado")
+            disponible = revisar(page, url)
 
-while True:
+            if disponible:
 
-    try:
-        with ThreadPoolExecutor(max_workers=3) as executor:
+                log(f"🔥 DISPONIBLE {fecha}")
 
-            futuros = {
-                executor.submit(revisar_evento, nombre, url): nombre
-                for nombre, url in URLS.items()
-            }
+                if not estado[fecha]:
 
-            for futuro in as_completed(futuros):
+                    for i in range(5):
+                        enviar(f"🚨 BTS DISPONIBLE 🚨\n{fecha}\n{url}")
+                        time.sleep(1)
 
-                data = futuro.result()
-                nombre = data["evento"]
-                url = data["url"]
-                ok = data["ok"]
+                estado[fecha] = True
 
-                if ok:
-                    log(f"🔥 DISPONIBLE -> {nombre}")
+            else:
+                log(f"❌ Cerrado {fecha}")
+                estado[fecha] = False
 
-                    ahora = time.time()
-
-                    # evita spam, reavisa cada 5 min si sigue abierto
-                    if (
-                        not estado[nombre]["activo"]
-                        or ahora - estado[nombre]["ultima_alerta"] > 300
-                    ):
-                        lanzar_alerta(nombre, url)
-                        estado[nombre]["ultima_alerta"] = ahora
-
-                    estado[nombre]["activo"] = True
-
-                else:
-                    log(f"❌ Cerrado -> {nombre}")
-                    estado[nombre]["activo"] = False
-
-        # intervalo rápido random anti-bloqueo
-        espera = random.uniform(4, 8)
+        espera = random.uniform(8,15)
         log(f"Esperando {round(espera,1)}s")
         time.sleep(espera)
-
-    except Exception as e:
-        log(f"ERROR GENERAL: {e}")
-        time.sleep(10)
