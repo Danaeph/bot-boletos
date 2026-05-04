@@ -1,2 +1,2 @@
 [start]
-cmd = "bash start.sh"
+cmd = "bash ./start.sh"
