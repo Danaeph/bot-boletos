@@ -6,7 +6,7 @@ COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Instalar dependencias de Chromium
+# Dependencias necesarias para Chromium
 RUN apt-get update && apt-get install -y \
     wget \
     curl \
@@ -39,10 +39,11 @@ RUN apt-get update && apt-get install -y \
     libfontconfig1 \
     fonts-liberation \
     fonts-noto-color-emoji \
+    fonts-unifont \
     && rm -rf /var/lib/apt/lists/*
 
-# INSTALAR CHROMIUM DE PLAYWRIGHT
-RUN playwright install --with-deps chromium
+# SOLO instalar Chromium, sin --with-deps
+RUN playwright install chromium
 
 COPY . .
 
