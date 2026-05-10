@@ -1,7 +1,4 @@
 import os
-            "boletos": disponible and not agotado,
-            "url_actual": current
-        }
 
     except Exception as e:
         log(f"Error revisando: {e}")
