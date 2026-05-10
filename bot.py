@@ -1,169 +1,160 @@
-import os
-import time
+import asyncio
 import random
+import time
 import requests
-from datetime import datetime
 
-os.system("playwright install chromium")
+from playwright.async_api import async_playwright
 
-from playwright.sync_api import sync_playwright
+# =========================
+# CONFIG
+# =========================
 
-TOKEN = os.getenv("TOKEN")
-CHAT_ID = os.getenv("CHAT_ID")
+URL = "PEGA_AQUI_TU_URL"
 
-URL = "https://www.ticketmaster.com.mx/bts-world-tour-arirang-in-mexico-ciudad-de-mexico-10-05-2026/event/1400642AA32D84D7"
+TOKEN = "TU_TOKEN_TELEGRAM"
+CHAT_ID = "TU_CHAT_ID"
 
+# =========================
+# LOGS
+# =========================
 
 def log(msg):
-    print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
+    hora = time.strftime("%H:%M:%S")
+    print(f"[{hora}] {msg}")
 
+# =========================
+# TELEGRAM
+# =========================
 
-def enviar(msg):
+def enviar_telegram(mensaje):
     try:
-        requests.post(
+        requests.get(
             f"https://api.telegram.org/bot{TOKEN}/sendMessage",
-            data={
+            params={
                 "chat_id": CHAT_ID,
-                "text": msg
+                "text": mensaje
             },
             timeout=10
         )
     except Exception as e:
-        log(f"Error Telegram: {e}")
+        log(f"Telegram error: {e}")
 
+# =========================
+# MAIN
+# =========================
 
-def revisar(page):
+async def main():
 
-    try:
-        page.goto(URL, wait_until="domcontentloaded", timeout=45000)
+    log("🚀 BOT INICIADO")
 
-        time.sleep(5)
+    async with async_playwright() as p:
 
-        html = page.content().lower()
-        current = page.url.lower()
-
-        en_fila = (
-            "queue-it" in current
-            or "waiting room" in html
-            or "join queue" in html
-            or "fila virtual" in html
-            or "queue" in html
-        )
-
-        disponible = (
-            "buscar boletos" in html
-            or "buy tickets" in html
-            or "ticket availability" in html
-            or "find tickets" in html
-        )
-
-        agotado = (
-            "sold out" in html
-            or "agotado" in html
-            or "coming soon" in html
-        )
-
-        return {
-            "fila": en_fila,
-            "boletos": disponible and not agotado,
-            "url_actual": current
-        }
-
-    except Exception as e:
-
-        log(f"Error revisando: {e}")
-
-        return {
-            "fila": False,
-            "boletos": False,
-            "url_actual": ""
-        }
-
-
-def main():
-
-    aviso_fila = False
-    aviso_boletos = False
-
-    with sync_playwright() as p:
-
-        browser = p.chromium.launch(
-            executable_path="/root/.cache/ms-playwright/chromium-1105/chrome-linux/chrome",
+        browser = await p.chromium.launch(
             headless=True,
             args=[
                 "--no-sandbox",
                 "--disable-dev-shm-usage",
-                "--disable-gpu",
                 "--disable-blink-features=AutomationControlled"
             ]
         )
 
-        context = browser.new_context(
+        context = await browser.new_context(
             viewport={"width": 1400, "height": 900},
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122 Safari/537.36"
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/123.0 Safari/537.36"
+            )
         )
 
-        page = context.new_page()
+        page = await context.new_page()
 
-        log("🚀 BOT INICIADO")
+        # =========================
+        # ENTRAR SOLO UNA VEZ
+        # =========================
+
+        await page.goto(URL, wait_until="domcontentloaded")
 
         while True:
 
-            data = revisar(page)
+            try:
 
-            if data["fila"]:
+                contenido = (await page.content()).lower()
 
-                log("🟡 EN FILA")
+                # =========================
+                # FILA
+                # =========================
 
-                if not aviso_fila:
+                if "queue" in page.url.lower():
 
-                    enviar(
-                        f"🟡 BOT EN FILA TM\n\n{data['url_actual']}"
+                    log("🟡 EN FILA")
+
+                    await asyncio.sleep(10)
+
+                    continue
+
+                # =========================
+                # DETECTAR MAPA
+                # =========================
+
+                try:
+
+                    disponibles = page.locator(
+                        'svg [fill="#0056FF"], '
+                        'svg [fill="#1E90FF"], '
+                        '[class*="available"], '
+                        '[aria-label*="Available"]'
                     )
 
-                    aviso_fila = True
+                    cantidad = await disponibles.count()
 
-            else:
-                aviso_fila = False
+                    if cantidad > 0:
 
-            if data["boletos"]:
+                        log(f"🎟️ SECCIONES DISPONIBLES: {cantidad}")
 
-                log("🔥 BOLETOS DETECTADOS")
-
-                if not aviso_boletos:
-
-                    for i in range(8):
-
-                        enviar(
-                            f"🚨 BOLETOS DISPONIBLES 🚨\n\n{URL}"
+                        enviar_telegram(
+                            f"🎟️ Posibles boletos detectados\n{URL}"
                         )
 
-                        time.sleep(1)
+                    else:
 
-                    aviso_boletos = True
+                        log("❌ SIN BOLETOS")
 
-            else:
+                except Exception as mapa_error:
 
-                log("❌ SIN BOLETOS")
+                    log(f"Mapa error: {mapa_error}")
 
-                aviso_boletos = False
+                # =========================
+                # REFRESH SIN REFORMARSE
+                # =========================
 
-            espera = random.uniform(10, 18)
+                espera = random.uniform(3, 6)
 
-            log(f"⏳ Esperando {round(espera, 1)}s")
+                log(f"⏳ Esperando {espera:.1f}s")
 
-            time.sleep(espera)
+                await asyncio.sleep(espera)
 
+                await page.reload(
+                    wait_until="domcontentloaded",
+                    timeout=60000
+                )
 
-if __name__ == "__main__":
+            except Exception as e:
 
-    while True:
+                log(f"ERROR CRÍTICO: {e}")
 
-        try:
-            main()
+                try:
+                    await page.reload(
+                        wait_until="domcontentloaded",
+                        timeout=60000
+                    )
+                except:
+                    pass
 
-        except Exception as e:
+                await asyncio.sleep(15)
 
-            log(f"ERROR CRÍTICO: {e}")
+# =========================
+# START
+# =========================
 
-            time.sleep(15)
+asyncio.run(main())
