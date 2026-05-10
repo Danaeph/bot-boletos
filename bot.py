@@ -11,8 +11,10 @@ from playwright.async_api import async_playwright
 
 URL = "https://www.ticketmaster.com.mx/bts-world-tour-arirang-in-mexico-ciudad-de-mexico-10-05-2026/event/1400642AA32D84D7"
 
-TOKEN = "TU_TOKEN_TELEGRAM"
-CHAT_ID = "TU_CHAT_ID"
+import os
+
+TOKEN = os.getenv("TOKEN")
+CHAT_ID = os.getenv("CHAT_ID")
 
 # =========================
 # LOGS
