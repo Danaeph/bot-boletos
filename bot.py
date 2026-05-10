@@ -2,6 +2,7 @@ import asyncio
 import random
 import time
 import requests
+import os
 
 from playwright.async_api import async_playwright
 
@@ -10,8 +11,6 @@ from playwright.async_api import async_playwright
 # =========================
 
 URL = "https://www.ticketmaster.com.mx/bts-world-tour-arirang-in-mexico-ciudad-de-mexico-10-05-2026/event/1400642AA32D84D7"
-
-import os
 
 TOKEN = os.getenv("TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
@@ -22,14 +21,20 @@ CHAT_ID = os.getenv("CHAT_ID")
 
 def log(msg):
     hora = time.strftime("%H:%M:%S")
-    print(f"[{hora}] {msg}")
+    print(f"[{hora}] {msg}", flush=True)
 
 # =========================
 # TELEGRAM
 # =========================
 
 def enviar_telegram(mensaje):
+
+    if not TOKEN or not CHAT_ID:
+        log("⚠️ TOKEN o CHAT_ID no configurados")
+        return
+
     try:
+
         requests.get(
             f"https://api.telegram.org/bot{TOKEN}/sendMessage",
             params={
@@ -38,28 +43,39 @@ def enviar_telegram(mensaje):
             },
             timeout=10
         )
+
     except Exception as e:
         log(f"Telegram error: {e}")
 
 # =========================
 # MAIN
 # =========================
+
+print("ARCHIVO INICIADO", flush=True)
+
 async def main():
 
     log("🚀 BOT NUEVO FUNCIONANDO")
+    log(f"🌐 URL: {URL}")
+
     enviar_telegram("✅ BOT CONECTADO")
-    log(f"URL ACTUAL: {URL}")
 
     async with async_playwright() as p:
 
+        log("🟡 Iniciando Chromium...")
+
         browser = await p.chromium.launch(
-           headless=True,
+            headless=True,
+            timeout=30000,
             args=[
                 "--no-sandbox",
                 "--disable-dev-shm-usage",
+                "--disable-gpu",
                 "--disable-blink-features=AutomationControlled"
             ]
         )
+
+        log("✅ Chromium iniciado")
 
         context = await browser.new_context(
             viewport={"width": 1400, "height": 900},
@@ -72,17 +88,23 @@ async def main():
 
         page = await context.new_page()
 
-        # =========================
-        # ENTRAR SOLO UNA VEZ
-        # =========================
+        log("🌐 Entrando a Ticketmaster...")
 
-        await page.goto(URL, wait_until="domcontentloaded")
+        await page.goto(
+            URL,
+            wait_until="domcontentloaded",
+            timeout=60000
+        )
+
+        log(f"📍 URL actual: {page.url}")
+
+        # =========================
+        # LOOP PRINCIPAL
+        # =========================
 
         while True:
 
             try:
-
-                contenido = (await page.content()).lower()
 
                 # =========================
                 # FILA
@@ -125,10 +147,10 @@ async def main():
 
                 except Exception as mapa_error:
 
-                    log(f"Mapa error: {mapa_error}")
+                    log(f"⚠️ Error mapa: {mapa_error}")
 
                 # =========================
-                # REFRESH SIN REFORMARSE
+                # REFRESH
                 # =========================
 
                 espera = random.uniform(3, 6)
@@ -137,6 +159,8 @@ async def main():
 
                 await asyncio.sleep(espera)
 
+                log("🔄 Recargando página...")
+
                 await page.reload(
                     wait_until="domcontentloaded",
                     timeout=60000
@@ -144,15 +168,18 @@ async def main():
 
             except Exception as e:
 
-                log(f"ERROR CRÍTICO: {e}")
+                log(f"❌ ERROR CRÍTICO: {e}")
 
                 try:
+
                     await page.reload(
                         wait_until="domcontentloaded",
                         timeout=60000
                     )
-                except:
-                    pass
+
+                except Exception as reload_error:
+
+                    log(f"⚠️ Error reload: {reload_error}")
 
                 await asyncio.sleep(15)
 
