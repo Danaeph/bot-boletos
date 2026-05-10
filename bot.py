@@ -4,11 +4,9 @@ import random
 import requests
 from datetime import datetime
 
-from playwright.sync_api import sync_playwright
-
 os.system("playwright install chromium")
 
-os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "0"
+from playwright.sync_api import sync_playwright
 
 TOKEN = os.getenv("TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
@@ -72,6 +70,7 @@ def revisar(page):
         }
 
     except Exception as e:
+
         log(f"Error revisando: {e}")
 
         return {
@@ -88,15 +87,16 @@ def main():
 
     with sync_playwright() as p:
 
-       browser = p.chromium.launch(
-    executable_path="/root/.cache/ms-playwright/chromium-1105/chrome-linux/chrome",
-    headless=True,
-    args=[
-        "--no-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-gpu"
-    ]
-)
+        browser = p.chromium.launch(
+            executable_path="/root/.cache/ms-playwright/chromium-1105/chrome-linux/chrome",
+            headless=True,
+            args=[
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--disable-blink-features=AutomationControlled"
+            ]
+        )
 
         context = browser.new_context(
             viewport={"width": 1400, "height": 900},
@@ -145,11 +145,12 @@ def main():
             else:
 
                 log("❌ SIN BOLETOS")
+
                 aviso_boletos = False
 
             espera = random.uniform(10, 18)
 
-            log(f"⏳ Esperando {round(espera,1)}s")
+            log(f"⏳ Esperando {round(espera, 1)}s")
 
             time.sleep(espera)
 
