@@ -46,6 +46,7 @@ def enviar_telegram(mensaje):
 async def main():
 
 log("🚀 BOT NUEVO FUNCIONANDO")
+enviar_telegram("✅ BOT CONECTADO")
 log(f"URL ACTUAL: {URL}")
 
     async with async_playwright() as p:
