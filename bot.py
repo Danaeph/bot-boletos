@@ -4,7 +4,7 @@ import random
 import requests
 from datetime import datetime
 
-os.system("python -m playwright install chromium")
+os.system("python -m playwright install --with-deps chromium")
 
 from playwright.sync_api import sync_playwright
 
