@@ -119,7 +119,13 @@ async def main():
                     continue
 
                 # =========================
-                # DETECTAR MAPA
+                # ESPERAR MAPA
+                # =========================
+
+                await page.wait_for_timeout(3000)
+
+                # =========================
+                # DETECTAR DISPONIBILIDAD
                 # =========================
 
                 try:
@@ -128,7 +134,8 @@ async def main():
                         'svg [fill="#0056FF"], '
                         'svg [fill="#1E90FF"], '
                         '[class*="available"], '
-                        '[aria-label*="Available"]'
+                        '[aria-label*="Available"], '
+                        '[data-testid*="available"]'
                     )
 
                     cantidad = await disponibles.count()
@@ -150,21 +157,27 @@ async def main():
                     log(f"⚠️ Error mapa: {mapa_error}")
 
                 # =========================
-                # REFRESH
+                # ESPERAR ANTES DE RECARGAR
                 # =========================
 
-                espera = random.uniform(3, 6)
+                espera = random.uniform(4, 8)
 
                 log(f"⏳ Esperando {espera:.1f}s")
 
                 await asyncio.sleep(espera)
 
+                # =========================
+                # RECARGAR MAPA
+                # =========================
+
                 log("🔄 Recargando página...")
 
                 await page.reload(
-                    wait_until="domcontentloaded",
+                    wait_until="networkidle",
                     timeout=60000
                 )
+
+                log("✅ Página recargada")
 
             except Exception as e:
 
