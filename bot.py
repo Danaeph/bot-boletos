@@ -97,8 +97,6 @@ def main():
         "--disable-gpu"
     ]
 )
-            ]
-        )
 
         context = browser.new_context(
             viewport={"width": 1400, "height": 900},
