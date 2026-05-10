@@ -2,7 +2,11 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Instalar dependencias necesarias para Playwright/Chromium
+COPY requirements.txt .
+
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Instalar dependencias de Chromium
 RUN apt-get update && apt-get install -y \
     wget \
     curl \
@@ -37,11 +41,9 @@ RUN apt-get update && apt-get install -y \
     fonts-noto-color-emoji \
     && rm -rf /var/lib/apt/lists/*
 
+# INSTALAR CHROMIUM DE PLAYWRIGHT
+RUN playwright install --with-deps chromium
+
 COPY . .
-
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Instalar navegadores de Playwright
-RUN playwright install chromium
 
 CMD ["python", "bot.py"]
