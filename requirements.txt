@@ -1,2 +1,5 @@
-playwright==1.42.0
+playwright
 requests
+python-telegram-bot
+beautifulsoup4
+lxml
