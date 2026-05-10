@@ -44,17 +44,16 @@ def enviar_telegram(mensaje):
 # =========================
 # MAIN
 # =========================
-
 async def main():
 
-log("🚀 BOT NUEVO FUNCIONANDO")
-enviar_telegram("✅ BOT CONECTADO")
-log(f"URL ACTUAL: {URL}")
+    log("🚀 BOT NUEVO FUNCIONANDO")
+    enviar_telegram("✅ BOT CONECTADO")
+    log(f"URL ACTUAL: {URL}")
 
     async with async_playwright() as p:
 
         browser = await p.chromium.launch(
-            headless=False,
+           headless=True,
             args=[
                 "--no-sandbox",
                 "--disable-dev-shm-usage",
