@@ -4,9 +4,9 @@ import random
 import requests
 from datetime import datetime
 
-os.system("python -m playwright install --with-deps chromium")
-
 from playwright.sync_api import sync_playwright
+
+os.system("playwright install chromium")
 
 os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "0"
 
@@ -88,13 +88,15 @@ def main():
 
     with sync_playwright() as p:
 
-        browser = p.chromium.launch(
-            headless=True,
-            args=[
-                "--no-sandbox",
-                "--disable-dev-shm-usage",
-                "--disable-gpu",
-                "--disable-blink-features=AutomationControlled"
+       browser = p.chromium.launch(
+    executable_path="/root/.cache/ms-playwright/chromium-1105/chrome-linux/chrome",
+    headless=True,
+    args=[
+        "--no-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu"
+    ]
+)
             ]
         )
 
